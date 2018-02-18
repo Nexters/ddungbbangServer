@@ -1,14 +1,8 @@
-module.exports.returnHeader = function(res) {
+module.exports.returnSuccess = function(res, key, value) {
     res.contentType('application/json; charset=utf-8');
-    res.write('{\"result\":\"success\"');
-}
-
-module.exports.returnBody = function(res, key, value) {
-    res.write(',\"' + key + '\":');
+    res.status(200);
+    res.write('{\"' + key + '\":');
     res.write(JSON.stringify(value));
-}
-
-module.exports.returnFooter = function(res) {
     res.write('}');
     res.end();
 }
@@ -16,6 +10,6 @@ module.exports.returnFooter = function(res) {
 module.exports.error = function(res, message, code) {
     res.contentType('application/json; charset=utf-8');
     res.status(code);
-    res.write(JSON.stringify({ 'result': 'failed', 'data': message }));
+    res.write(JSON.stringify({'data': message }));
     res.end();
 }

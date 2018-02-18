@@ -54,10 +54,8 @@ router.post('/signup', function(req, res, next) {
       returnData.code = '0000';
       returnData.idx = inputParam.idx;
       returnData.email = inputParam.email;
-      returnData.activeAccountFlag = inputParam.activeAccountFlag;
-      responseReturn.returnHeader(res);
-      responseReturn.returnBody(res, 'data', returnData);
-      responseReturn.returnFooter(res);
+      returnData.active_account_flag = inputParam.activeAccountFlag;
+      responseReturn.returnSuccess(res, 'data', returnData);
     } else {
       returnData.code = '0002';
       returnData.errmsg = '인증 이메일 발송 에러!!!';
@@ -65,9 +63,7 @@ router.post('/signup', function(req, res, next) {
     }
   }).catch(function(err) {
     console.log(err);
-    responseReturn.returnHeader(res);
-    responseReturn.returnBody(res, 'data', returnData);
-    responseReturn.returnFooter(res);
+    responseReturn.error(res, returnData, 400);
   });
 });
 
@@ -207,31 +203,24 @@ router.post('/verifyemail', function(req, res, next) {
       updateActivationFlag(selectParam).then(function(updateResult) {
         console.log(updateResult);
         returnData.code = '0000'; //성공
-        responseReturn.returnHeader(res);
-        responseReturn.returnBody(res, 'data', returnData);
-        responseReturn.returnFooter(res);
+        returnData.idx = idx; //성공
+        responseReturn.returnSuccess(res, 'data', returnData);
       }).catch(function(err) {
         console.log(err);
         returnData.code = '0005'; //인증코드 업데이트 실패
         returnData.errmsg = '인증코드 업데이트 실패';
-        responseReturn.returnHeader(res);
-        responseReturn.returnBody(res, 'data', returnData);
-        responseReturn.returnFooter(res);
+        responseReturn.error(res, returnData, 400);
       });
     } else {
       returnData.code = '0003'; //이미인증됨
       returnData.errmsg = '이미인증됨';
-      responseReturn.returnHeader(res);
-      responseReturn.returnBody(res, 'data', returnData);
-      responseReturn.returnFooter(res);
+      responseReturn.error(res, returnData, 400);
     }
   }).catch(function(err) {
     console.log(err);
     returnData.code = '0004'; //인증코드 실패
     returnData.errmsg = '인증코드 실패';
-    responseReturn.returnHeader(res);
-    responseReturn.returnBody(res, 'data', returnData);
-    responseReturn.returnFooter(res);
+    responseReturn.error(res, returnData, 400);
   });
 });
 
@@ -283,8 +272,8 @@ router.post('/signin', function(req, res, next) {
 
   var email = req.body.email;
   var password = req.body.password;
-  // var deviceType = req.body.deviceType;
-  // var fcm_token = req.body.fcmToken;
+  var deviceType = req.body.deviceType;
+  var fcm_token = req.body.fcmPushToken;
   var inputParam = {};
   var returnData = {};
 
@@ -299,16 +288,12 @@ router.post('/signin', function(req, res, next) {
     // }
     returnData = signInResult[0];
     returnData.code = '0000'; //성공
-    responseReturn.returnHeader(res);
-    responseReturn.returnBody(res, 'data', returnData);
-    responseReturn.returnFooter(res);
+    responseReturn.returnSuccess(res, 'data', returnData);
   }).catch(function(err) {
     console.log(err);
     returnData.code = '0006'; //아이디 또는 비밀번호 오류
     returnData.errmsg = '아이디 또는 비밀번호 오류';
-    responseReturn.returnHeader(res);
-    responseReturn.returnBody(res, 'data', returnData);
-    responseReturn.returnFooter(res);
+    responseReturn.error(res, returnData, 400);
   });
 
 });
@@ -319,6 +304,7 @@ function retrieveSignIn(param) {
     queryStr += 'idx, ';
     // queryStr += 'id, ';
     queryStr += 'email, ';
+    queryStr += 'nickname, ';
     // queryStr += 'fcm_token, ';
     queryStr += 'active_account_flag ';
     queryStr += 'FROM user ';
@@ -338,47 +324,65 @@ function retrieveSignIn(param) {
   });
 }
 
+router.post('/resendverifyemail', function(req, res, next) {
+  console.log('***** user resendverifyemail start *****')
+  console.log(req.body);
+
+  var idx = req.body.idx;
+  var email = req.body.email;
+  var active_account_code = createCode();
+
+  var returnData = {};
+
+  var updateParam = {};
+  updateParam.idx = idx;
+  updateParam.email = email;
+  updateParam.activeAccountCode = active_account_code;
+
+  resendEmailUpdate(updateParam).then(function(updateResult) {
+    return sendVerifyMail(updateParam);
+  }).then(function(mailResult) {
+    var returnData = {};
+    if (mailResult == 'OK') {
+      returnData.code = '0000';
+      returnData.idx = idx;
+      returnData.email = email;
+      responseReturn.returnSuccess(res, 'data', returnData);
+    } else {
+      returnData.code = '0008'; //인증코드 재발송 오류
+      returnData.errmsg = '인증코드 재발송 오류';
+      responseReturn.error(res, returnData, 400);
+    }
+  }).catch(function(err) {
+    console.log(err);
+    returnData.code = '0007'; //인증코드 업데이트 에러
+    returnData.errmsg = '인증코드 업데이트 에러';
+    responseReturn.error(res, returnData, 400);
+  });
+});
+
+function resendEmailUpdate(param) {
+  return new Promise(function(resolve, reject) {
+    var queryStr = 'UPDATE user SET ';
+    queryStr += 'active_account_code = "' + param.activeAccountCode + '" ';
+    queryStr += 'WHERE idx = ' + param.idx + ' ';
+    queryStr += 'AND email = "' + param.email + '" ';
+    queryStr += 'AND active_account_flag = 0';
+
+    console.log(queryStr);
+
+    dbPool.query(queryStr, function(error, rows, fields) {
+      if (error || rows.affectedRows == 0) {
+        reject(new Error('resendEmailUpdate query error!'));
+      } else {
+        resolve(rows);
+      }
+    });
+  });
+}
 
 
-// router.post('/resendverifyemail', function(req, res, next) {
-//   console.log('***** user resendverifyemail start *****')
-//   console.log(req.body);
 
-//   var email = req.body.email;
-//   var password = req.body.password;
-//   var nickname = req.body.nickname;
-//   // var fcm_token = req.body.fcmToken;
-//   var active_account_code = createCode();
-//   var inputParam = {};
-
-//   inputParam.id = email;
-//   inputParam.email = email;
-//   inputParam.password = password;
-//   inputParam.nickname = nickname;
-//   inputParam.activeAccountFlag = 0;
-//   inputParam.activeAccountCode = active_account_code;
-//   inputParam.typeFlag = 1;
-//   inputParam.statusFalg = 1;
-
-//   signupInsert(inputParam).then(function(loginResult) {
-//     inputParam.idx = loginResult.insertId;
-//     return sendVerifyMail(inputParam);
-//   }).then(function(mailResult) {
-//     var returnData = {};
-//     if (mailResult == 'OK') {
-//       returnData.idx = inputParam.idx;
-//       returnData.email = inputParam.email;
-//       returnData.activeAccountFlag = inputParam.activeAccountFlag;
-//       responseReturn.returnHeader(res);
-//       responseReturn.returnBody(res, 'data', returnData);
-//       responseReturn.returnFooter(res);
-//     } else {
-//       responseReturn.error(res, 'email certification error!!', 500);
-//     }
-//   }).catch(function(err) {
-//     console.log(err);
-//     responseReturn.error(res, 'FAIL', 500);
-//   });
-// });
+//글쓰기, 읽기, 삭제, 리스트, 비밀번호 변경
 
 module.exports = router;
