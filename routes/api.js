@@ -63,7 +63,7 @@ router.post('/signup', function(req, res, next) {
     }
   }).catch(function(err) {
     console.log(err);
-    responseReturn.error(res, returnData, 400);
+    responseReturn.error(res, returnData.code, returnData, 400);
   });
 });
 
@@ -112,7 +112,7 @@ function signupInsert(param) {
     queryStr += "\"" + param.activeAccountCode + "\", ";
     queryStr += param.typeFlag + " , ";
     queryStr += param.statusFalg + " , ";
-    queryStr += "now()) ";
+    queryStr += "now(6)) ";
 
     console.log(queryStr);
 
@@ -209,18 +209,18 @@ router.post('/verifyemail', function(req, res, next) {
         console.log(err);
         returnData.code = '0005'; //인증코드 업데이트 실패
         returnData.errmsg = '인증코드 업데이트 실패';
-        responseReturn.error(res, returnData, 400);
+        responseReturn.error(res, returnData.code, returnData, 400);
       });
     } else {
       returnData.code = '0003'; //이미인증됨
       returnData.errmsg = '이미인증됨';
-      responseReturn.error(res, returnData, 400);
+      responseReturn.error(res, returnData.code, returnData, 400);
     }
   }).catch(function(err) {
     console.log(err);
     returnData.code = '0004'; //인증코드 실패
     returnData.errmsg = '인증코드 실패';
-    responseReturn.error(res, returnData, 400);
+    responseReturn.error(res, returnData.code, returnData, 400);
   });
 });
 
@@ -272,20 +272,14 @@ router.post('/signin', function(req, res, next) {
 
   var email = req.body.email;
   var password = req.body.password;
-  var deviceType = req.body.deviceType;
-  var fcm_token = req.body.fcmPushToken;
   var inputParam = {};
   var returnData = {};
 
   inputParam.email = email;
   inputParam.password = password;
-  // inputParam.deviceType = deviceType;
 
   retrieveSignIn(inputParam).then(function(signInResult) {
     console.log(signInResult);
-    // if (fcm_token == signInResult.fcm_token) {
-    //   updateSignInfo();
-    // }
     returnData = signInResult[0];
     returnData.code = '0000'; //성공
     responseReturn.returnSuccess(res, 'data', returnData);
@@ -293,7 +287,7 @@ router.post('/signin', function(req, res, next) {
     console.log(err);
     returnData.code = '0006'; //아이디 또는 비밀번호 오류
     returnData.errmsg = '아이디 또는 비밀번호 오류';
-    responseReturn.error(res, returnData, 400);
+    responseReturn.error(res, returnData.code, returnData, 400);
   });
 
 });
@@ -351,13 +345,13 @@ router.post('/resendverifyemail', function(req, res, next) {
     } else {
       returnData.code = '0008'; //인증코드 재발송 오류
       returnData.errmsg = '인증코드 재발송 오류';
-      responseReturn.error(res, returnData, 400);
+      responseReturn.error(res, returnData.code, returnData, 400);
     }
   }).catch(function(err) {
     console.log(err);
     returnData.code = '0007'; //인증코드 업데이트 에러
     returnData.errmsg = '인증코드 업데이트 에러';
-    responseReturn.error(res, returnData, 400);
+    responseReturn.error(res, returnData.code, returnData, 400);
   });
 });
 
@@ -381,8 +375,149 @@ function resendEmailUpdate(param) {
   });
 }
 
+router.post('/write', function(req, res, next) {
+  console.log('***** user write start *****')
+  console.log(req.body);
+
+  var userIdx = req.body.userIdx;
+  var contents = req.body.contents;
+  var inputParam = {};
+  var returnData = {};
+
+  inputParam.userIdx = userIdx;
+  inputParam.contents = contents;
+
+  diaryInsert(inputParam).then(function(insertResult) {
+    returnData.contents_idx = insertResult.insertId;
+    returnData.code = '0000'; //성공
+    responseReturn.returnSuccess(res, 'data', returnData);
+  }).catch(function(err) {
+    console.log(err);
+    returnData.code = '0009'; //글쓰기 오류
+    returnData.errmsg = '글쓰기 오류';
+    responseReturn.error(res, returnData.code, returnData, 400);
+  });
+});
+
+function diaryInsert(param) {
+  return new Promise(function(resolve, reject) {
+    var queryStr = 'INSERT INTO diary (';
+    queryStr += 'user_idx, ';
+    queryStr += 'contents, ';
+    queryStr += 'status_flag, ';
+    queryStr += 'insert_date) VALUES (';
+    queryStr += param.userIdx + " , ";
+    queryStr += "\"" + param.contents + "\", ";
+    queryStr += "1, ";
+    queryStr += "now(6)) ";
+
+    console.log(queryStr);
+
+    dbPool.query(queryStr, function(error, rows, fields) {
+      if (error) {
+        reject(new Error('diaryInsert query error!'));
+      } else {
+        resolve(rows);
+      }
+    });
+  });
+}
+
+router.post('/list', function(req, res, next) {
+  console.log('***** user list start *****')
+  console.log(req.body);
+
+  var userIdx = req.body.userIdx;
+  var selectParam = {};
+  var returnData = {};
+
+  selectParam.userIdx = userIdx;
+
+  diaryListSelect(selectParam).then(function(selectResult) {
+    console.log(selectResult);
+    returnData = selectResult;
+    responseReturn.returnSuccess(res, 'data', returnData);
+  }).catch(function(err) {
+    console.log(err);
+    returnData.code = '0010'; //리스트 가져오기 오류
+    returnData.errmsg = '글쓰기 오류';
+    responseReturn.error(res, returnData.code, returnData, 400);
+  });
+});
+
+function diaryListSelect(param) {
+  return new Promise(function(resolve, reject) {
+    var queryStr = 'SELECT ';
+    queryStr += 'idx, ';
+    queryStr += 'user_idx, ';
+    queryStr += 'contents, ';
+    queryStr += 'date_format(insert_date, \'%Y-%m-%d %H:%i:%s\') AS insert_date, ';
+    queryStr += 'date_format(update_date, \'%Y-%m-%d %H:%i:%s\') AS update_date ';
+    queryStr += 'FROM diary ';
+    queryStr += 'WHERE user_idx = ' + param.userIdx + ' '
+    queryStr += 'AND status_flag != 3 ';
+
+    console.log(queryStr);
+
+    dbPool.query(queryStr, function(error, rows, fields) {
+      if (error) {
+        reject(new Error('diaryListSelect query error!'));
+      } else {
+        resolve(rows);
+      }
+    });
+  });
+}
+
+router.post('/read', function(req, res, next) {
+  console.log('***** user read start *****')
+  console.log(req.body);
+
+  var userIdx = req.body.userIdx;
+  var contentsIdx = req.body.contentsIdx;
+  var selectParam = {};
+  var returnData = {};
+
+  selectParam.userIdx = userIdx;
+  selectParam.contentsIdx = contentsIdx;
+
+  diaryDetailSelect(selectParam).then(function(selectResult) {
+    returnData = selectResult[0];
+    responseReturn.returnSuccess(res, 'data', returnData);
+  }).catch(function(err) {
+    console.log(err);
+    returnData.code = '0011'; //상세글 가져오기 오류
+    returnData.errmsg = '글쓰기 오류';
+    responseReturn.error(res, returnData.code, returnData, 400);
+  });
+});
+
+function diaryDetailSelect(param) {
+  return new Promise(function(resolve, reject) {
+    var queryStr = 'SELECT ';
+    queryStr += 'idx, ';
+    queryStr += 'user_idx, ';
+    queryStr += 'contents, ';
+    queryStr += 'date_format(insert_date, \'%Y-%m-%d %H:%i:%s\') AS insert_date, ';
+    queryStr += 'date_format(update_date, \'%Y-%m-%d %H:%i:%s\') AS update_date ';
+    queryStr += 'FROM diary ';
+    queryStr += 'WHERE user_idx = ' + param.userIdx + ' '
+    queryStr += 'AND idx = ' + param.contentsIdx + ' '
+    queryStr += 'AND status_flag != 3 ';
+
+    console.log(queryStr);
+
+    dbPool.query(queryStr, function(error, rows, fields) {
+      if (error) {
+        reject(new Error('diaryListSelect query error!'));
+      } else {
+        resolve(rows);
+      }
+    });
+  });
+}
 
 
-//글쓰기, 읽기, 삭제, 리스트, 비밀번호 변경
+//삭제, 비밀번호 변경, 토큰추가
 
 module.exports = router;
