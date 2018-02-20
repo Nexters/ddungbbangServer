@@ -7,11 +7,10 @@ module.exports.returnSuccess = function(res, key, value) {
   res.end();
 }
 
-module.exports.error = function(res, errcode, value, code) {
+module.exports.error = function(res, value, code) {
   res.contentType('application/json; charset=utf-8');
   res.status(code);
-  res.write('{\"code\":\"' + errcode + '\",\"data\":');
   res.write(JSON.stringify(value));
-  res.write('}');
+  console.log(JSON.stringify(value));
   res.end();
 }
