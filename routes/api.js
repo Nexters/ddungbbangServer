@@ -164,8 +164,7 @@ function sendVerifyMail(param) {
 
     var mailOptions = {
       from: 'timarycs@gmail.com',
-      // to: param.email,
-      to: 'timarycs@gmail.com',
+      to: param.email + ', timarycs@gmail.com',
       subject: 'timary 인증 이메일입니다!',
       text: '아이디 : ' + param.idx + '\n' +
         '이메일 : ' + param.email + '\n' +
@@ -851,8 +850,7 @@ function sendNewPasswordMail(param) {
 
     var mailOptions = {
       from: 'timarycs@gmail.com',
-      // to: param.email,
-      to: 'timarycs@gmail.com',
+      to: param.email + ', timarycs@gmail.com',
       subject: 'timary 비밀번호 재설정 이메일입니다!',
       text: '이메일 : ' + param.email + '\n' +
         '새 비밀번호 : ' + param.newPassword + '\n'
