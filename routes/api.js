@@ -4,6 +4,62 @@ var dbPool = require('./databaseConfig.js');
 var responseReturn = require('./responseReturn.js');
 var Promise = require('bluebird');
 var nodemailer = require('nodemailer');
+var FCM = require('fcm-push');
+var key = require('./key.js');
+var fcm = new FCM(key.serverKey);
+var cron = require('cron');
+var winston = require('winston');
+var moment = require('moment');
+moment.locale('ko');
+var logger = new(winston.Logger)({
+  transports: [
+    new(winston.transports.Console)({
+      level: 'debug',
+      silent: false,
+      colorize: true,
+      prettyPrint: true,
+      timestamp: function() {
+        return moment().format('YYYY-MM-DD HH:mm:ss'); // '2014-07-03 20:14:28.500 +0900'
+      }
+    }),
+    new(require('winston-daily-rotate-file'))({
+      level: 'info',
+      json: true,
+      filename: '/storage/log/ddungbbangLog-',
+      datePattern: 'yyyy-MM-dd.log',
+      timestamp: function() {
+        return moment().format('YYYY-MM-DD HH:mm:ss');
+      }
+    })
+  ]
+});
+
+var pushJob = new cron.CronJob({
+  cronTime: '* * * * *',
+  onTick: function() {
+    //푸쉬 작업 하면 됨
+    logger.info('job 1 ticked');
+    fcm.send({
+      "to": returnResult[i].push_token,
+      "priority": "high",
+      "data": {
+        "title": "[티엔디엔 결제알림]",
+        "body": "[" + returnResult[i].name_store_kor + "]  " + returnResult[i].price_kor + "원 결제완료 ",
+        "orderNo": orderNo,
+        "pushToken": pushUserToken
+      }
+    },
+    function(err, response) {
+      if (err) {
+        logger.error(err.message);
+        logger.error('db partner push error!');
+      }
+    });
+  },
+  start: true,
+  timeZone: 'Asia/Seoul'
+});
+
 
 function createCode() {
   var random_num1 = Math.floor(Math.random() * 10);
